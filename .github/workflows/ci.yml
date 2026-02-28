@@ -50,24 +50,40 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Detect project directory
+        id: project
+        run: |
+          if [ -f requirements.txt ]; then
+            echo "dir=." >> "$GITHUB_OUTPUT"
+          elif [ -f cloud-native-inventory-system/requirements.txt ]; then
+            echo "dir=cloud-native-inventory-system" >> "$GITHUB_OUTPUT"
+          else
+            echo "Could not locate requirements.txt" >&2
+            exit 1
+          fi
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Install dependencies
+        working-directory: ${{ steps.project.outputs.dir }}
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install flake8
 
       - name: Build check
+        working-directory: ${{ steps.project.outputs.dir }}
         run: python -m compileall src
 
       - name: Lint check
+        working-directory: ${{ steps.project.outputs.dir }}
         run: flake8 src tests --count --select=E9,F63,F7,F82 --show-source --statistics
 
       - name: Run automated tests
+        working-directory: ${{ steps.project.outputs.dir }}
         run: pytest -q
 
   docker-image:
@@ -78,6 +94,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Detect project directory
+        id: project
+        run: |
+          if [ -f Dockerfile ]; then
+            echo "dir=." >> "$GITHUB_OUTPUT"
+            echo "dockerfile=./Dockerfile" >> "$GITHUB_OUTPUT"
+          elif [ -f cloud-native-inventory-system/Dockerfile ]; then
+            echo "dir=./cloud-native-inventory-system" >> "$GITHUB_OUTPUT"
+            echo "dockerfile=./cloud-native-inventory-system/Dockerfile" >> "$GITHUB_OUTPUT"
+          else
+            echo "Could not locate Dockerfile" >&2
+            exit 1
+          fi
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -102,8 +132,8 @@ jobs:
       - name: Build and (conditionally) push image
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: ./Dockerfile
+          context: ${{ steps.project.outputs.dir }}
+          file: ${{ steps.project.outputs.dockerfile }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
