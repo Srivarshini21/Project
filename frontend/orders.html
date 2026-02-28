@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Orders</title>
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="container mt-5">
+
+<h2>Orders</h2>
+
+<div class="row mb-3">
+	<div class="col">
+		<input type="number" id="userId" class="form-control" placeholder="User ID">
+	</div>
+	<div class="col">
+		<input type="number" id="productId" class="form-control" placeholder="Product ID">
+	</div>
+	<div class="col">
+		<input type="number" id="quantity" class="form-control" placeholder="Quantity">
+	</div>
+	<div class="col">
+		<button class="btn btn-warning" onclick="addOrder()">Add Order</button>
+	</div>
+</div>
+
+<div id="statusMessage" class="mb-3"></div>
+
+<table class="table table-bordered">
+	<thead>
+		<tr>
+			<th>ID</th>
+			<th>User ID</th>
+			<th>Product ID</th>
+			<th>Quantity</th>
+		</tr>
+	</thead>
+	<tbody id="orderTable"></tbody>
+</table>
+
+<script>
+function showMessage(message, type) {
+	const status = document.getElementById("statusMessage");
+	status.innerHTML = `<div class="alert alert-${type} py-2 mb-0">${message}</div>`;
+}
+
+async function addOrder() {
+	const userId = parseInt(document.getElementById("userId").value, 10);
+	const productId = parseInt(document.getElementById("productId").value, 10);
+	const quantity = parseInt(document.getElementById("quantity").value, 10);
+
+	if (Number.isNaN(userId) || Number.isNaN(productId) || Number.isNaN(quantity) || quantity <= 0) {
+		showMessage("Please enter valid User ID, Product ID, and Quantity (> 0).", "warning");
+		return;
+	}
+
+	const response = await fetch("/orders/", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			user_id: userId,
+			product_id: productId,
+			quantity: quantity
+		})
+	});
+
+	if (!response.ok) {
+		let errorText = "Failed to add order.";
+		try {
+			const errorData = await response.json();
+			if (errorData.detail) {
+				errorText = errorData.detail;
+			}
+		} catch (e) {}
+		showMessage(errorText, "danger");
+		return;
+	}
+
+	showMessage("Order added successfully.", "success");
+
+	loadOrders();
+}
+
+async function loadOrders() {
+	const response = await fetch("/orders/");
+	const orders = await response.json();
+
+	const table = document.getElementById("orderTable");
+	table.innerHTML = "";
+
+	orders.forEach(order => {
+		table.innerHTML += `
+			<tr>
+				<td>${order.id}</td>
+				<td>${order.user_id}</td>
+				<td>${order.product_id}</td>
+				<td>${order.quantity}</td>
+			</tr>
+		`;
+	});
+}
+
+loadOrders();
+</script>
+
+</body>
+</html>
